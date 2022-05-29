@@ -12,7 +12,7 @@ using namespace glm;
 
         for (int i = 0; i < 3;i++)
         {
-            cp[i] = ((p1[i] + p1[i]) / 2);
+            cp[i] = ((p1[i] + p2[i]) / 2);
         }
 
         return cp;
@@ -63,12 +63,12 @@ using namespace glm;
         // face_points will have one point for each face
         vector<vec3> face_points;
 
-        for (vector<int> curr_face : input_faces)
+        for (int num=0; num <input_faces.size(); num++)
         {
-            vec3 face_point = vec3(0.0, 0.0, 0.0);
-            for (int curr_point_index : curr_face)
+            vec3 face_point{ 0.0, 0.0, 0.0 };
+            for (int index=0; index< input_faces[num].size();index++)
             {
-                vec3 curr_point = input_points[curr_point_index];
+                vec3 curr_point = input_points[input_faces[num][index]];
                 // add curr_point to face_point
                 // will divide later
                 for (int i = 0; i < 3;i++)
@@ -78,7 +78,7 @@ using namespace glm;
             }
 
             // divide by number of points for average
-            int num_points = curr_face.size();
+            int num_points = input_faces[num].size();
 
             for (int i = 0; i < NUM_DIMENSIONS;i++)
             {
@@ -86,9 +86,8 @@ using namespace glm;
             }
 
             face_points.push_back(face_point);
-
-            return face_points;
         }
+        return face_points;
     }
 
     //Get list of edgesand the one or two adjacent faces in a list.
@@ -185,7 +184,7 @@ using namespace glm;
 
         vector<vec3> edges_centers;
 
-        for (vector<int> me : edges)
+        for (vector<int> me : merged_edges)
         {
 
             vec3 p1 = input_points[me[0]];
@@ -195,153 +194,12 @@ using namespace glm;
             edges_centers.push_back(cp);
         }
         
-        tuple< vector<vector<int>>, vector<vec3>> result = { edges, edges_centers };
+        tuple< vector<vector<int>>, vector<vec3>> result = { merged_edges, edges_centers };
 
         return result;
     }
 
 
-    //for each edge, an edge point is created which is the average
-    //between the center of the edge and the center of the segment made
-    //with the face points of the two adjacent faces.
-
-    vector<vec3> get_edge_points(vector<vec3>input_points, vector <vector<int>> edges_faces, vector<vec3> edges_centers, vector<vec3>face_points)
-    {
-        vector<vec3> edge_points;
-
-        for (int i = 0; i < edges_faces.size();i++)
-        {
-
-            // get center of edge
-            vec3 cp = edges_centers[i];
-
-            // get center of two facepoints
-            vec3 fp1 = face_points[edges_faces[i][2]];
-
-            // if not two faces just use one facepoint
-            // should not happen for solid like a cube
-
-            vec3 fp2;
-
-            if (edges_faces[i].size() == 3)
-            {
-                fp2 = fp1;
-            }
-
-            else
-            {
-                fp2 = face_points[edges_faces[i][3]];
-            }
-
-            vec3 cfp = center_point(fp1, fp2);
-
-            // get average between center of edge and center of facepoints
-
-            vec3 edge_point = center_point(cp, cfp);
-            edge_points.push_back(edge_point);
-        }
-
-        return edge_points;
-
-    }
-
-
-    vector<vec3> get_avg_face_points(vector<vec3>input_points, vector<vector<int>> input_faces, vector<vec3>face_points)
-    {
-        // for each point calculate
-        //the average of the face points of the faces the point belongs to(avg_face_points)
-        //create a list of lists of two numbers[facepoint_sum, num_points] by going through the
-        //points in all the faces.
-        //then create the avg_face_points list of point by dividing point_sum(x, y, z) by num_points
-
-
-        int number_points = input_points.size();
-
-        vector<vec3> temp_points;
-        vector<int> temp_points_num;
-
-        // initialize 
-        for (int i = 0;i < number_points;i++)
-        {
-            temp_points.push_back({ 0.0,0.0,0.0 });
-            temp_points_num.push_back(0);
-        }
-
-        // loop through faces updating temp_points
-
-        for (int facenum = 0; facenum < input_faces.size();facenum++)
-        {
-            vec3 fp = face_points[facenum];
-            for (int pointnum : input_faces[facenum])
-            {
-                temp_points[pointnum] = sum_point(temp_points[pointnum], fp);
-                temp_points_num[pointnum] += 1;
-            }
-        }
-
-        // count how many faces the point is belong to, and sum all the point, next step we caculate the average
-        // divide to create avg_face_points
-
-        vector<vec3> avg_face_points;
-
-        for (int i = 0;i < temp_points.size();i++)
-        {
-            vec3 afp = div_point(temp_points[i], temp_points_num[i]);
-            avg_face_points.push_back(afp);
-        }
-
-        return avg_face_points;
-    }
-
-
-    vector<vec3> get_avg_mid_edges(vector<vec3>input_points, vector <vector<int>> edges_faces, vector<vec3>edges_centers)
-    {
-        //the average of the centers of edges the point belongs to (avg_mid_edges)
-        //create list with entry for each point
-        //each entry has two elements. one is a point that is the sum of the centers of the edges
-        //and the other is the number of edges. after going through all edges divide by
-        //number of edges.
-
-
-        // initialize list
-        int num_points = input_points.size();
-
-        vector<vec3> temp_points;
-        vector<int> temp_points_num;
-
-        for (int i = 0; i < num_points;i++)
-        {
-            temp_points.push_back({ 0.0,0.0,0.0 });
-            temp_points_num.push_back(0);
-        }
-
-        // go through edges_faces using center updating each point
-
-        for (int i = 0;i < edges_faces.size();i++)
-        {
-            vec3 cp = edges_centers[i];
-            vec3 tp = temp_points[edges_faces[i][0]];
-
-            temp_points[edges_faces[i][0]] = sum_point(tp, cp);
-            temp_points_num[i] += 1;
-
-            tp = temp_points[edges_faces[i][1]];
-            temp_points[edges_faces[i][0]] = sum_point(tp, temp_points[edges_faces[i][0]]);
-            temp_points_num[i] += 1;
-        }
-
-        // divide out number of points to get average
-
-        vector<vec3> avg_mid_edges;
-
-        for (int i = 0; i < temp_points_num.size();i++)
-        {
-            vec3 ame = div_point(temp_points[i], temp_points_num[i]);
-            avg_mid_edges.push_back(ame);
-        }
-
-        return avg_mid_edges;
-    }
 
     vector<int> get_points_faces(vector<vec3> input_points, vector<vector<int>> input_faces)
     {
@@ -371,30 +229,6 @@ using namespace glm;
     }
 
 
-    vector<vec3> get_new_points(vector<vec3> input_points, vector<int> points_faces, vector<vec3> avg_face_points, vector<vec3> avg_mid_edges)
-    {
-        vector<vec3> new_points;
-
-        for (int pointnum = 0; pointnum < input_points.size();pointnum++)
-        {
-            int n = points_faces[pointnum];
-            int m1 = (n - 3.0) / n;
-            int m2 = 1.0 / n;
-            int m3 = 2.0 / n;
-            vec3 old_coords = input_points[pointnum];
-            vec3 p1 = mul_point(old_coords, m1);
-            vec3 afp = avg_face_points[pointnum];
-            vec3 p2 = mul_point(afp, m2);
-            vec3 ame = avg_mid_edges[pointnum];
-            vec3 p3 = mul_point(ame, m3);
-            vec3 p4 = sum_point(p1, p2);
-            vec3 new_coords = sum_point(p4, p3);
-
-            new_points.push_back(new_coords);
-        }
-
-        return new_points;
-    }
 
     tuple<int, int> switch_nums(tuple<int, int> point_nums)
     {
@@ -420,15 +254,7 @@ using namespace glm;
         vector<vector<int>> edges_faces = get<0>(get_edges_faces(input_points, input_faces));
         vector<vec3> edges_centers = get <1>(get_edges_faces(input_points, input_faces));
 
-        vector<vec3>edge_points = get_edge_points(input_points, edges_faces, edges_centers, face_points);
-
-        vector<vec3> avg_face_points = get_avg_face_points(input_points, input_faces, face_points);
-
-        vector<vec3>avg_mid_edges = get_avg_mid_edges(input_points, edges_faces, edges_centers);
-
-        vector<int>points_faces = get_points_faces(input_points, input_faces);
-
-        vector<vec3>new_points = get_new_points(input_points, points_faces, avg_face_points, avg_mid_edges);
+        
 
         // add face points to new_points
 
@@ -436,11 +262,11 @@ using namespace glm;
 
         // point num after next append to new_points
 
-        int next_pointnum = new_points.size();
+        int next_pointnum = input_points.size();
 
         for (vec3 face_point : face_points)
         {
-            new_points.push_back(face_point);
+            input_points.push_back(face_point);
             face_point_nums.push_back(next_pointnum);
             next_pointnum += 1;
         }
@@ -453,9 +279,9 @@ using namespace glm;
         {
             int pointnum_1 = edges_faces[edgenum][0];
             int pointnum_2 = edges_faces[edgenum][1];
-            vec3 edge_point = edge_points[edgenum];
+            vec3 edge_point = edges_centers[edgenum];
 
-            new_points.push_back(edge_point);
+            input_points.push_back(edge_point);
             
 
             tuple<int, int> temptuple = { pointnum_1, pointnum_2 };
@@ -496,9 +322,41 @@ using namespace glm;
                 new_faces.push_back({ c, edge_point_cd, face_point_abcd, edge_point_bc });
                 new_faces.push_back({ d, edge_point_da, face_point_abcd, edge_point_cd });
             }
+
+            //for 6 point face
+            if (oldface.size() == 6)
+            {
+                int a = oldface[0];
+                int b = oldface[1];
+                int c = oldface[2];
+                int d = oldface[3];
+                int e = oldface[4];
+                int f = oldface[5];
+                
+
+                int face_point = face_point_nums[oldfacenum];
+
+                int edge_point_ab = edge_point_nums[switch_nums({ a,b })];
+                int edge_point_bc = edge_point_nums[switch_nums({ b,c })];
+                int edge_point_cd = edge_point_nums[switch_nums({ c,d })];
+                int edge_point_de = edge_point_nums[switch_nums({ d,e })];
+                int edge_point_ef = edge_point_nums[switch_nums({ e,f })];
+                int edge_point_fa = edge_point_nums[switch_nums({ f,a })];
+
+                new_faces.push_back({ a, edge_point_ab, face_point, edge_point_fa });
+                new_faces.push_back({ b, edge_point_bc ,face_point, edge_point_ab });
+                new_faces.push_back({ c, edge_point_cd, face_point,edge_point_bc });
+                new_faces.push_back({ d, edge_point_de, face_point, edge_point_cd });
+                new_faces.push_back({ e, edge_point_ef, face_point, edge_point_de });
+                new_faces.push_back({ f, edge_point_fa, face_point, edge_point_ef });
+
+
+            }
+
+
         }
 
-        tuple<vector<vec3>, vector<vector<int>>> result = { new_points,new_faces };
+        tuple<vector<vec3>, vector<vector<int>>> result = { input_points,new_faces };
 
         return result;
     }
